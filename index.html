@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Passagem de Turno do Armazém</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: uma coluna estreita como uma ficha de passagem, faixa de sinalização no topo, abas Nova / Histórico */
+:root{
+  --bg:#eceff2; --surface:#ffffff; --ink:#1a2028; --muted:#5a6572; --line:#d3d9e0;
+  --hazard:#f2c200; --hazard-ink:#1a2028;
+  --ok:#1d7a4b; --ok-bg:#e3f3ea; --bad:#c0352a; --bad-bg:#fbe7e5; --na:#6a7480; --na-bg:#eceef1;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#13171c; --surface:#1b2128; --ink:#e6e9ed; --muted:#9aa4b0; --line:#2d353f;
+  --hazard:#f2c200; --hazard-ink:#13171c;
+  --ok:#47b97f; --ok-bg:#16301f; --bad:#ef6b5f; --bad-bg:#3a1c19; --na:#9aa4b0; --na-bg:#252c34;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13171c; --surface:#1b2128; --ink:#e6e9ed; --muted:#9aa4b0; --line:#2d353f;
+  --hazard:#f2c200; --hazard-ink:#13171c;
+  --ok:#47b97f; --ok-bg:#16301f; --bad:#ef6b5f; --bad-bg:#3a1c19; --na:#9aa4b0; --na-bg:#252c34;
+  color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+.stripe{height:10px;background:repeating-linear-gradient(-45deg,var(--hazard) 0 14px,var(--hazard-ink) 14px 28px)}
+header{padding-block:22px 6px;display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:700;font-size:2.1rem;line-height:1;letter-spacing:.01em;margin:0;text-transform:uppercase;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0;font-size:.92rem}
+.shifts{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-block:18px 20px}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:600 1.05rem var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--hazard)}
+.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--hazard);outline-offset:2px}
+.count{font-family:var(--f-mono);font-size:.75rem;background:var(--na-bg);color:var(--muted);border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:2px}
+.notice{border:1px solid var(--line);background:var(--surface);border-left:4px solid var(--hazard);padding:10px 14px;margin-bottom:16px;font-size:.92rem}
+fieldset{border:0;margin:0 0 22px;padding:0}
+legend{font-family:var(--f-display);font-weight:700;font-size:1.25rem;text-transform:uppercase;letter-spacing:.04em;padding:0;margin-bottom:10px;display:flex;align-items:center;gap:10px;width:100%}
+legend .tag{font:500 .72rem var(--f-mono);background:var(--hazard);color:var(--hazard-ink);padding:2px 6px;letter-spacing:0}
+legend .prog{margin-left:auto;font:500 .75rem var(--f-mono);color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);padding:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:560px){.grid,.grid3{grid-template-columns:1fr}}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;min-width:0}
+input[type=text],input[type=date],input[type=number],select,textarea{font:inherit;font-size:.98rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px 10px;width:100%;text-transform:none;letter-spacing:0}
+input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+textarea{min-height:84px;resize:vertical}
+.missing input,.missing select,input.missing{border-color:var(--bad)}
+.items{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line)}
+.item{padding:12px 16px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;align-items:center}
+.item:first-child{border-top:0}
+.item.missing{box-shadow:inset 4px 0 0 var(--bad)}
+.item .txt{min-width:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{font:600 .8rem var(--f-body);letter-spacing:.04em;text-transform:uppercase;padding:7px 12px;cursor:pointer;color:var(--muted);border-left:1px solid var(--line);user-select:none}
+.seg label:first-of-type{border-left:0}
+.seg input:focus-visible+label{outline:2px solid var(--hazard);outline-offset:-2px}
+.seg input[value=ok]:checked+label{background:var(--ok);color:#fff}
+.seg input[value=falha]:checked+label{background:var(--bad);color:#fff}
+.seg input[value=na]:checked+label{background:var(--na-bg);color:var(--ink)}
+.item .nota{grid-column:1/-1}
+@media (max-width:560px){.item{grid-template-columns:1fr}.seg{justify-self:start}}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.98rem}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--ink)}
+.bar{position:sticky;bottom:0;background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--hazard);padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.bar .stat{font:500 .85rem var(--f-mono);color:var(--muted)}
+.bar .stat b{color:var(--ink)}
+.bar .stat .bad{color:var(--bad)}
+.btn{appearance:none;border:0;background:var(--ink);color:var(--bg);font:700 1rem var(--f-display);text-transform:uppercase;letter-spacing:.06em;padding:11px 20px;border-radius:4px;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.err{color:var(--bad);font-size:.88rem;margin:8px 0 0}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px}
+.filters select{width:auto}
+.empty{text-align:center;padding:40px 16px;border:2px dashed var(--line);color:var(--muted)}
+.empty strong{display:block;font-family:var(--f-display);font-size:1.3rem;text-transform:uppercase;color:var(--ink);margin-bottom:4px}
+.rec{background:var(--surface);border:1px solid var(--line);margin-bottom:10px}
+.rec.has-bad{border-left:4px solid var(--bad)}
+.rec.all-ok{border-left:4px solid var(--ok)}
+.rec-h{padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.rec-date{font:700 1.15rem var(--f-display);letter-spacing:.03em}
+.chip{font:500 .75rem var(--f-mono);padding:2px 8px;border-radius:3px;background:var(--hazard);color:var(--hazard-ink)}
+.pill{font:600 .75rem var(--f-body);text-transform:uppercase;letter-spacing:.05em;padding:2px 9px;border-radius:999px}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.rec-who{flex-basis:100%;color:var(--muted);font-size:.9rem}
+.nums{display:flex;flex-wrap:wrap;gap:4px 18px;font:500 .8rem var(--f-mono);color:var(--muted);flex-basis:100%}
+.nums b{color:var(--ink);font-variant-numeric:tabular-nums}
+details{border-top:1px solid var(--line)}
+summary{padding:9px 16px;cursor:pointer;font-weight:600;font-size:.9rem;color:var(--muted)}
+.det{padding:0 16px 14px;display:grid;gap:12px}
+.det h4{margin:0 0 4px;font:700 .95rem var(--f-display);text-transform:uppercase;letter-spacing:.05em}
+.det ul{margin:0;padding:0;list-style:none;display:grid;gap:3px;font-size:.9rem}
+.det li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:8px}
+.st{font:500 .72rem var(--f-mono);text-transform:uppercase}
+.st.ok{color:var(--ok)} .st.falha{color:var(--bad)} .st.na{color:var(--na)}
+.det .n{grid-column:2;color:var(--muted);font-style:italic}
+.det p{margin:0;white-space:pre-wrap;font-size:.92rem}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:4px;font-weight:600;z-index:20}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
+</style>
+
+<div class="stripe" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Passagem de Turno</h1>
+      <p class="sub">Armazém · checklist de entrega e recebimento do turno</p>
+    </div>
+    <div class="shifts" aria-label="Horários dos turnos"><span>T1 06–14h</span><span>T2 14–22h</span><span>T3 22–06h</span></div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-nova" aria-selected="true" aria-controls="view-nova">Nova passagem</button>
+    <button class="tab" role="tab" id="tab-hist" aria-selected="false" aria-controls="view-hist">Histórico<span class="count" id="hist-count">0</span></button>
+  </div>
+
+  <div id="db-notice" class="notice" hidden></div>
+
+  <section id="view-nova" role="tabpanel" aria-labelledby="tab-nova">
+    <form id="form" novalidate>
+      <fieldset>
+        <legend><span class="tag">01</span>Identificação</legend>
+        <div class="panel grid">
+          <label class="f" id="w-data">Data<input type="date" id="data" name="data"></label>
+          <label class="f">Área / doca<input type="text" id="area" name="area" placeholder="Ex.: Docas 1–6, Expedição"></label>
+          <label class="f" id="w-sai">Turno que entrega
+            <select id="turnoSai" name="turnoSai"><option value="">Selecione</option><option>T1</option><option>T2</option><option>T3</option></select></label>
+          <label class="f" id="w-entra">Turno que recebe
+            <select id="turnoEntra" name="turnoEntra"><option value="">Selecione</option><option>T1</option><option>T2</option><option>T3</option></select></label>
+          <label class="f" id="w-entregue">Quem entrega (líder)<input type="text" id="entregue" name="entregue" autocomplete="name"></label>
+          <label class="f" id="w-recebe">Quem recebe (líder)<input type="text" id="recebe" name="recebe"></label>
+        </div>
+      </fieldset>
+
+      <div id="secoes"></div>
+
+      <fieldset>
+        <legend><span class="tag">06</span>Situação da operação</legend>
+        <div class="panel grid">
+          <label class="f">Ciclo
+            <select id="ciclo" name="ciclo"><option value="">Selecione</option><option>AM1</option><option>PM1</option><option>SD</option><option>CPM</option></select></label>
+          <label class="f">Rotas pendentes<input type="number" min="0" inputmode="numeric" id="n-rotas" name="n-rotas" placeholder="0"></label>        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="tag">07</span>Pendências e observações</legend>
+        <div class="panel" style="display:grid;gap:14px">
+          <label class="f">O que o próximo turno precisa resolver
+            <textarea id="pendencias" name="pendencias" placeholder="Ex.: Carreta da transportadora X chega às 15h na doca 4; inventário rotativo do corredor C pela metade."></textarea></label>
+          <label class="f" style="max-width:240px">Prioridade
+            <select id="prioridade" name="prioridade"><option>Baixa</option><option selected>Média</option><option>Alta</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="tag">08</span>Aceite</legend>
+        <div class="panel" id="w-aceite">
+          <label class="check"><input type="checkbox" id="aceite" name="aceite"> Quem recebe confirma que conferiu as informações e assume o turno.</label>
+        </div>
+      </fieldset>
+
+      <div class="bar">
+        <span class="stat" id="stat"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn ghost" id="limpar">Limpar</button>
+          <button type="submit" class="btn" id="enviar">Registrar passagem</button>
+        </div>
+      </div>
+      <p class="err" id="erro" hidden></p>
+    </form>
+  </section>
+
+  <section id="view-hist" role="tabpanel" aria-labelledby="tab-hist" hidden>
+    <div class="filters">
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px">Turno
+        <select id="f-turno"><option value="">Todos</option><option>T1</option><option>T2</option><option>T3</option></select></label>
+      <label class="check" style="font-size:.92rem"><input type="checkbox" id="f-falhas"> Só com falhas</label>
+      <button type="button" class="btn ghost" id="atualizar" style="margin-left:auto;padding:7px 14px;font-size:.9rem">Atualizar</button>
+    </div>
+    <div id="lista">
+      <div class="empty"><strong>Nenhuma passagem registrada ainda</strong>Preencha a aba Nova passagem ao final do turno. Os registros aparecem aqui para toda a equipe.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+const SECOES=[
+ {n:'02',titulo:'Segurança',itens:[
+  ['epi','EPIs disponíveis e em bom estado (capacete, bota, colete, luvas)'],
+  ['ext','Extintores, hidrantes e rotas de fuga desobstruídos'],
+  ['ped','Faixas de pedestres e corredores sinalizados e livres'],
+  ['inc','Turno sem acidente, quase-acidente ou avaria de carga']]},
+ {n:'03',titulo:'Equipamentos',itens:[
+  ['pal','Transpaleteiras funcionando e com bateria para o próximo turno'],
+  ['rf','Etiquetadores funcionando'],
+  ['doc','Docas, niveladoras e portões operando normalmente']]},
+ {n:'04',titulo:'Operação',itens:[
+  ['div','Divergências de inventário registradas'],
+  ['dev','Devoluções e avarias segregadas na área correta']]},
+ {n:'05',titulo:'Organização (5S)',itens:[
+  ['pick','Área de picking abastecida e organizada'],
+  ['palv','Gaiolas no local definido'],
+  ['res','Resíduos (stretch, papelão) descartados nas caçambas'],
+  ['lim','Docas e corredores limpos']]}
+];
+const ITENS=SECOES.flatMap(s=>s.itens);
+const LBL={ok:'OK',falha:'Falha',na:'N/A'};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtData=d=>d&&/^\d{4}-\d{2}-\d{2}$/.test(d)?d.split('-').reverse().join('/'):(d||'—');
+
+// Monta as seções do checklist
+$('secoes').innerHTML=SECOES.map(s=>`
+ <fieldset data-sec="${s.n}">
+  <legend><span class="tag">${s.n}</span>${s.titulo}<span class="prog" id="prog-${s.n}"></span></legend>
+  <ul class="items">${s.itens.map(([id,t])=>`
+   <li class="item" id="w-${id}">
+    <span class="txt" id="t-${id}">${t}</span>
+    <span class="seg" role="radiogroup" aria-labelledby="t-${id}">
+     ${['ok','falha','na'].map(v=>`<input type="radio" name="it-${id}" id="it-${id}-${v}" value="${v}"><label for="it-${id}-${v}">${LBL[v]}</label>`).join('')}
+    </span>
+    <input type="text" class="nota" id="nota-${id}" name="nota-${id}" placeholder="Descreva a falha e a ação tomada" hidden>
+   </li>`).join('')}
+  </ul>
+ </fieldset>`).join('');
+
+// Padrões: data de hoje e turno pelo horário
+function padroes(){
+  const now=new Date(),h=now.getHours();
+  const t=h>=6&&h<14?'T2':h>=14&&h<22?'T3':'T1'; // turno que está ENTREGANDO perto do fim
+  const sai=h>=6&&h<14?'T1':h>=14&&h<22?'T2':'T3';
+  const d=new Date(now); if(h<6) d.setDate(d.getDate()-1);
+  $('data').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  $('turnoSai').value=sai; $('turnoEntra').value=t;
+}
+
+const form=$('form');
+function ler(){
+  const checklist={};
+  for(const [id] of ITENS){
+    const v=(form.querySelector(`input[name="it-${id}"]:checked`)||{}).value||'';
+    checklist[id]={s:v,nota:v==='falha'?$('nota-'+id).value.trim():''};
+  }
+  const num=id=>{const v=$(id).value;return v===''?null:Math.max(0,parseInt(v,10)||0)};
+  return {
+    data:$('data').value,area:$('area').value.trim(),
+    turnoSai:$('turnoSai').value,turnoEntra:$('turnoEntra').value,
+    entregue:$('entregue').value.trim(),recebe:$('recebe').value.trim(),
+    checklist,
+    ciclo:$('ciclo').value,
+    numeros:{rotas:num('n-rotas')},
+    pendencias:$('pendencias').value.trim(),prioridade:$('prioridade').value,
+    aceite:$('aceite').checked
+  };
+}
+function atualizar(){
+  const d=ler();let resp=0,falhas=0;
+  for(const [id] of ITENS){const s=d.checklist[id].s;if(s)resp++;if(s==='falha')falhas++;$('nota-'+id).hidden=s!=='falha';}
+  for(const s of SECOES){const r=s.itens.filter(([id])=>d.checklist[id].s).length;$('prog-'+s.n).textContent=`${r}/${s.itens.length}`;}
+  $('stat').innerHTML=`<b>${resp}</b>/${ITENS.length} itens verificados · <span class="${falhas?'bad':''}"><b class="${falhas?'bad':''}">${falhas}</b> ${falhas===1?'falha':'falhas'}</span>`;
+}
+
+// Rascunho local (só neste navegador)
+const KEY='passagem-rascunho';
+let tSave;
+function salvarRascunho(){clearTimeout(tSave);tSave=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(ler()))}catch(e){}},400)}
+function carregarRascunho(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+  if(!d){padroes();return}
+  ['data','area','turnoSai','turnoEntra','entregue','recebe','pendencias','prioridade','ciclo'].forEach(k=>{if(d[k]!=null)$(k).value=d[k]});
+  if(!d.data)padroes();
+  $('aceite').checked=!!d.aceite;
+  const n=d.numeros||{};$('n-rotas').value=n.rotas??'';
+  for(const [id] of ITENS){const c=(d.checklist||{})[id];if(c&&c.s){const r=$(`it-${id}-${c.s}`);if(r)r.checked=true;$('nota-'+id).value=c.nota||''}}
+}
+function limpar(){form.reset();try{localStorage.removeItem(KEY)}catch(e){}padroes();document.querySelectorAll('.missing').forEach(e=>e.classList.remove('missing'));$('erro').hidden=true;atualizar()}
+
+form.addEventListener('input',()=>{atualizar();salvarRascunho()});
+form.addEventListener('change',e=>{const w=e.target.closest('.missing');if(w)w.classList.remove('missing');atualizar();salvarRascunho()});
+$('limpar').addEventListener('click',limpar);
+
+// Abas
+function aba(nome){
+  const nova=nome==='nova';
+  $('tab-nova').setAttribute('aria-selected',nova);$('tab-hist').setAttribute('aria-selected',!nova);
+  $('view-nova').hidden=!nova;$('view-hist').hidden=nova;
+}
+$('tab-nova').onclick=()=>aba('nova');$('tab-hist').onclick=()=>aba('hist');
+if(location.hash==='#historico')aba('hist');
+
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+
+// Validação
+function validar(d){
+  const falt=[];
+  [['data','w-data'],['turnoSai','w-sai'],['turnoEntra','w-entra'],['entregue','w-entregue'],['recebe','w-recebe']].forEach(([k,w])=>{if(!d[k])falt.push(w)});
+  for(const [id] of ITENS){const c=d.checklist[id];if(!c.s||(c.s==='falha'&&!c.nota))falt.push('w-'+id)}
+  if(!d.aceite)falt.push('w-aceite');
+  document.querySelectorAll('.missing').forEach(e=>e.classList.remove('missing'));
+  falt.forEach(w=>$(w)&&$(w).classList.add('missing'));
+  return falt;
+}
+
+// ===== CONFIGURAÇÃO =====
+// Cole aqui a URL do App da Web do Google Apps Script (termina em /exec)
+const API_URL='https://script.google.com/macros/s/AKfycbz_tWgbIKZBZoz3etCooAnIEJYwzzjDWK-EV86Vmr4R-IDOP30gXX_baK9wvys3O1Cq/exec';
+// ========================
+const configurado=/^https:\/\/script\.google\.com\/.+\/exec$/.test(API_URL);
+let registros=[];
+async function api(metodo,corpo){
+  const r=await fetch(API_URL,metodo==='POST'
+    ?{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(corpo)}
+    :{method:'GET'});
+  const j=await r.json();
+  if(!j.ok)throw new Error(j.erro||'erro');
+  return j;
+}
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const d=ler(),falt=validar(d),err=$('erro');
+  if(falt.length){
+    err.textContent=`Faltam ${falt.length} ${falt.length===1?'campo':'campos'} obrigatórios. Itens com falha precisam de descrição.`;err.hidden=false;
+    $(falt[0]).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});return;
+  }
+  if(!configurado){err.textContent='O formulário ainda não está ligado à planilha. Configure a URL do Apps Script no arquivo.';err.hidden=false;return}
+  err.hidden=true;const b=$('enviar');b.disabled=true;b.textContent='Salvando…';
+  const falhas=ITENS.filter(([id])=>d.checklist[id].s==='falha').length;
+  try{
+    await api('POST',{...d,falhas});
+    limpar();toast('Passagem registrada');aba('hist');window.scrollTo(0,0);carregar();
+  }catch(x){
+    err.textContent='Não foi possível salvar agora. Verifique a internet e tente de novo; seus dados continuam no formulário.';
+    err.hidden=false;
+  }finally{b.disabled=false;b.textContent='Registrar passagem'}
+});
+
+function render(){
+  const ft=$('f-turno').value,ff=$('f-falhas').checked;
+  $('hist-count').textContent=registros.length;
+  const lista=registros.filter(r=>(!ft||r.turnoSai===ft)&&(!ff||r.falhas>0));
+  if(!registros.length){$('lista').innerHTML='<div class="empty"><strong>Nenhuma passagem registrada ainda</strong>Preencha a aba Nova passagem ao final do turno. Os registros aparecem aqui para toda a equipe.</div>';return}
+  if(!lista.length){$('lista').innerHTML='<div class="empty"><strong>Nada com esse filtro</strong>Ajuste o turno ou desmarque “Só com falhas”.</div>';return}
+  $('lista').innerHTML=lista.map(r=>{
+    const ck=r.checklist||{},n=r.numeros||{},f=r.falhas||0;
+    const nv=v=>v==null?'—':v;
+    const secs=SECOES.map(s=>`<div><h4>${s.titulo}</h4><ul>${s.itens.map(([id,t])=>{const c=ck[id]||{};return `<li><span class="st ${esc(c.s)}">${esc(LBL[c.s]||'—')}</span><span>${esc(t)}</span>${c.nota?`<span class="n">${esc(c.nota)}</span>`:''}</li>`}).join('')}</ul></div>`).join('');
+    return `<article class="rec ${f?'has-bad':'all-ok'}">
+     <div class="rec-h">
+      <span class="rec-date">${esc(fmtData(r.data))}</span>
+      <span class="chip">${esc(r.turnoSai)} → ${esc(r.turnoEntra)}</span>
+      <span class="pill ${f?'bad':'ok'}">${f?f+(f===1?' falha':' falhas'):'Sem falhas'}</span>
+      ${r.pendencias?`<span class="pill" style="background:var(--na-bg);color:var(--ink)">Prioridade ${esc(r.prioridade)}</span>`:''}
+      <span class="rec-who">Entregue por <b>${esc(r.entregue)}</b> · Recebido por <b>${esc(r.recebe)}</b>${r.area?' · '+esc(r.area):''}</span>
+      <span class="nums">${r.ciclo?`<span>Ciclo <b>${esc(r.ciclo)}</b></span>`:''}<span>Rotas pendentes <b>${nv(n.rotas)}</b></span></span>
+     </div>
+     <details><summary>Ver checklist e pendências</summary><div class="det">
+      ${r.pendencias?`<div><h4>Pendências</h4><p>${esc(r.pendencias)}</p></div>`:''}
+      ${secs}
+     </div></details>
+    </article>`}).join('');
+}
+$('f-turno').onchange=render;$('f-falhas').onchange=render;
+
+function aviso(msg){const n=$('db-notice');n.textContent=msg;n.hidden=!msg}
+
+async function carregar(){
+  if(!configurado)return;
+  const b=$('atualizar');b.disabled=true;b.textContent='Carregando…';
+  try{const j=await api('GET');registros=j.registros||[];aviso('');render()}
+  catch(x){aviso('Não foi possível carregar o histórico. Verifique a internet e clique em Atualizar.')}
+  finally{b.disabled=false;b.textContent='Atualizar'}
+}
+$('atualizar').onclick=carregar;
+$('tab-hist').addEventListener('click',carregar);
+
+carregarRascunho();atualizar();
+if(!configurado)aviso('Configuração pendente: cole a URL do Apps Script na linha API_URL deste arquivo para salvar e ver o histórico.');
+else carregar();
+setInterval(()=>{if(!$('view-hist').hidden&&!document.hidden)carregar()},120000);
+</script>
